@@ -56,6 +56,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	r.URL = purl
 	r.RemoteAddr = ""
+	r.RequestURI = purl.String()
 	corsProxy(purl).ServeHTTP(w, r)
 }
 
@@ -73,12 +74,19 @@ func corsProxy(u *url.URL) http.HandlerFunc {
 			df(r)
 			r.Header.Del("referer")
 			r.Header.Del("origin")
+			r.Header.Del("X-Forwarded-For")
+			r.Header.Del("X-Real-IP")
+			r.Host = u.Host
 		}
 
 		proxy.ModifyResponse = func(r *http.Response) error {
 			r.Header.Set("Access-Control-Allow-Origin", "*")
 			r.Header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			r.Header.Set("Access-Control-Allow-Headers", "Accept, Authorization, Cache-Control, Content-Type, DNT, If-Modified-Since, Keep-Alive, Origin, User-Agent, X-Requested-With, Token, x-access-token")
+			r.Header.Set("X-ToProxy", r.Request.URL.String())
+			if r.StatusCode >= 300 && r.StatusCode < 400 {
+				r.Header.Set("Location", "/"+r.Header.Get("Location"))
+			}
 			return nil
 		}
 
