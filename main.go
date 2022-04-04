@@ -55,12 +55,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.URL = purl
+	r.RemoteAddr = ""
 	corsProxy(purl).ServeHTTP(w, r)
 }
 
-func corsProxy(url *url.URL) http.HandlerFunc {
+func corsProxy(u *url.URL) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		proxy := httputil.NewSingleHostReverseProxy(url)
+		proxy := httputil.NewSingleHostReverseProxy(&url.URL{
+			Host:   u.Host,
+			Scheme: u.Scheme,
+		})
 		proxy.ErrorLog = log.Default()
 
 		df := proxy.Director
