@@ -1,0 +1,9 @@
+{
+    "AllowHost": [
+        "xmdhs.com",
+        "xmdhs.top",
+        "127.0.0.1",
+        "localhost"
+    ],
+    "Listen": "127.0.0.1:8136"
+}
