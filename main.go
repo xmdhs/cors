@@ -29,7 +29,7 @@ func main() {
 
 	s := http.Server{
 		Addr:              c.Listen,
-		Handler:           mux,
+		Handler:           block(c.AllowHost, handler),
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      60 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
@@ -40,7 +40,7 @@ func main() {
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	u := r.URL.String()
-	u = strings.TrimPrefix(u, r.URL.Scheme+"://"+r.Host+"/")
+	u = strings.TrimPrefix(u, "/")
 	purl, err := url.Parse(u)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -54,6 +54,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	r.URL = purl
 	corsProxy(purl).ServeHTTP(w, r)
 }
 
@@ -84,8 +85,19 @@ func corsProxy(url *url.URL) http.HandlerFunc {
 func block(allowHost []string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		allow := false
+		rhost := r.Header.Get("referer")
+		if rhost == "" {
+			rhost = r.Header.Get("origin")
+		}
+		u, err := url.Parse(rhost)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		rhost = u.Hostname()
 		for _, host := range allowHost {
-			if strings.HasSuffix(r.Host, host) {
+			if strings.HasSuffix(rhost, host) {
 				allow = true
 				break
 			}
