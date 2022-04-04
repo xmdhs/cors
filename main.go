@@ -83,9 +83,6 @@ func corsProxy(url *url.URL) http.HandlerFunc {
 
 func block(allowHost []string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "OPTIONS" {
-			return
-		}
 		allow := false
 		for _, host := range allowHost {
 			if strings.HasSuffix(r.Host, host) {
