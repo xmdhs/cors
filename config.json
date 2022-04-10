@@ -25,7 +25,7 @@
         },
         {
             "URL": "^https://ani\\.gamer\\.com\\.tw/ajax/danmuGet.php\\?.*$",
-            "Method": 1
+            "Method": 5
         },
         {
             "URL": "^https://api\\.bilibili\\.com/x/player/pagelist\\?.*$",
