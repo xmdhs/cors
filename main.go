@@ -35,8 +35,8 @@ func main() {
 }
 
 func handler(allowURL []corsURL) http.HandlerFunc {
-	for _, u := range allowURL {
-		u.regexp = regexp.MustCompile(u.URL)
+	for i := range allowURL {
+		allowURL[i].regexp = regexp.MustCompile(allowURL[i].URL)
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		u := r.URL.String()
