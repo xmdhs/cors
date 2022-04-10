@@ -23,14 +23,9 @@ func main() {
 		panic(err)
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", block(c.AllowHost, handler(c.AlllowURL)))
-	mux.HandleFunc("/favicon.ico", http.NotFound)
-	mux.HandleFunc("/robots.txt", http.NotFound)
-
 	s := http.Server{
 		Addr:              c.Listen,
-		Handler:           mux,
+		Handler:           block(c.AllowHost, handler(c.AlllowURL)),
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      60 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
