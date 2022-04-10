@@ -40,7 +40,7 @@
             "Method": 1
         },
         {
-            "URL": "^https://.*\\.chinacloudsite\\.cn/api.*$",
+            "URL": "^https://.*\\.chinacloudsites\\.cn/api.*$",
             "Method": 1
         }
     ]
