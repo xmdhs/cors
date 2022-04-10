@@ -7,12 +7,12 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
 
 func main() {
-
 	b, err := os.ReadFile("config.json")
 	if err != nil {
 		panic(err)
@@ -24,12 +24,13 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", block(c.AllowHost, handler))
+	mux.HandleFunc("/", block(c.AllowHost, handler(c.AlllowURL)))
 	mux.HandleFunc("/favicon.ico", http.NotFound)
+	mux.HandleFunc("/robots.txt", http.NotFound)
 
 	s := http.Server{
 		Addr:              c.Listen,
-		Handler:           block(c.AllowHost, handler),
+		Handler:           mux,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      60 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
@@ -38,23 +39,33 @@ func main() {
 	log.Println(s.ListenAndServe())
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	u := r.URL.String()
-	u = strings.TrimPrefix(u, "/")
-	purl, err := url.Parse(u)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-		return
+func handler(allowURL []corsURL) http.HandlerFunc {
+	for _, u := range allowURL {
+		u.regexp = regexp.MustCompile(u.URL)
 	}
-	if purl.Scheme == "" {
-		purl.Scheme = "http"
+	return func(w http.ResponseWriter, r *http.Request) {
+		u := r.URL.String()
+		u = strings.TrimPrefix(u, "/")
+		purl, err := url.Parse(u)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		if purl.Scheme == "" {
+			purl.Scheme = "http"
+		}
+		if purl.Host == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if !alllowURL(allowURL, purl.String(), r.Method) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("not allow url or method"))
+			return
+		}
+		corsProxy(purl).ServeHTTP(w, r)
 	}
-	if purl.Host == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	corsProxy(purl).ServeHTTP(w, r)
 }
 
 func corsProxy(u *url.URL) http.HandlerFunc {
@@ -79,7 +90,7 @@ func corsProxy(u *url.URL) http.HandlerFunc {
 		proxy.ModifyResponse = func(r *http.Response) error {
 			r.Header.Set("Access-Control-Allow-Origin", "*")
 			r.Header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-			r.Header.Set("Access-Control-Allow-Headers", "Accept, Authorization, Cache-Control, Content-Type, DNT, If-Modified-Since, Keep-Alive, Origin, User-Agent, X-Requested-With, Token, x-access-token")
+			r.Header.Set("Access-Control-Allow-Headers", "Accept, Authorization, Cache-Control, Content-Type, DNT, If-Modified-Since, Keep-Alive, Origin, User-Agent")
 			r.Header.Set("X-ToProxy", r.Request.URL.String())
 			if r.StatusCode >= 300 && r.StatusCode < 400 && r.Header.Get("Location") != "" {
 				r.Header.Set("Location", "/"+r.Header.Get("Location"))
@@ -124,7 +135,39 @@ func block(allowHost []string, next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func alllowURL(alllowURL []corsURL, url, method string) bool {
+	for _, r := range alllowURL {
+		if r.regexp.MatchString(url) {
+			mi := methodM[method]
+			if r.Method&mi == mi {
+				return true
+			}
+			return false
+		}
+	}
+	return false
+}
+
 type config struct {
 	AllowHost []string
 	Listen    string
+	AlllowURL []corsURL
+}
+
+type corsURL struct {
+	URL    string
+	Method int
+	regexp *regexp.Regexp
+}
+
+var methodM = map[string]int{
+	"GET":     1,
+	"HEAD":    2,
+	"POST":    4,
+	"PUT":     8,
+	"DELETE":  16,
+	"CONNECT": 32,
+	"OPTIONS": 64,
+	"TRACE":   128,
+	"PATCH":   256,
 }

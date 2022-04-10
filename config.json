@@ -5,5 +5,39 @@
         "127.0.0.1",
         "localhost"
     ],
-    "Listen": "127.0.0.1:8136"
+    "Listen": "127.0.0.1:8136",
+    "AlllowURL": [
+        {
+            "URL": "^https://ys.mihoyo.com/content/ysCn/getContentList\\?.*$",
+            "Method": 1
+        },
+        {
+            "URL": "^https://ys.mihoyo.com/main/news/detail/.*$",
+            "Method": 1
+        },
+        {
+            "URL": "^https://api.acplay.net/api/v2/search/episodes\\?.*$",
+            "Method": 1
+        },
+        {
+            "URL": "^https://api.acplay.net/api/v2/comment/.*$",
+            "Method": 1
+        },
+        {
+            "URL": "^https://ani.gamer.com.tw/ajax/danmuGet.php\\?.*$",
+            "Method": 1
+        },
+        {
+            "URL": "^https://api.bilibili.com/x/player/pagelist\\?.*$",
+            "Method": 1
+        },
+        {
+            "URL": "^https://api.bilibili.com/x/player/v2\\?.*$",
+            "Method": 1
+        },
+        {
+            "URL": "^https://api.bilibili.com/pgc/view/web/season\\?.*$",
+            "Method": 1
+        }
+    ]
 }
