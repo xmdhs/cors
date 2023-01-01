@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -12,20 +13,35 @@ import (
 	"time"
 )
 
+var all bool
+
+func init() {
+	flag.BoolVar(&all, "all", false, "")
+	flag.Parse()
+}
+
 func main() {
-	b, err := os.ReadFile("config.json")
-	if err != nil {
-		panic(err)
-	}
 	c := config{}
-	err = json.Unmarshal(b, &c)
-	if err != nil {
-		panic(err)
+	if !all {
+		b, err := os.ReadFile("config.json")
+		if err != nil {
+			panic(err)
+		}
+		err = json.Unmarshal(b, &c)
+		if err != nil {
+			panic(err)
+		}
+	}
+	var h http.Handler
+	if all {
+		h = handler()
+	} else {
+		h = block(c.AllowHost, c.AlllowURL, handler())
 	}
 
 	s := http.Server{
 		Addr:              c.Listen,
-		Handler:           block(c.AllowHost, handler(c.AlllowURL)),
+		Handler:           h,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      60 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
@@ -34,10 +50,7 @@ func main() {
 	log.Println(s.ListenAndServe())
 }
 
-func handler(allowURL []corsURL) http.HandlerFunc {
-	for i := range allowURL {
-		allowURL[i].regexp = regexp.MustCompile(allowURL[i].URL)
-	}
+func handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		u := r.URL.String()
 		u = strings.TrimPrefix(u, "/")
@@ -52,11 +65,6 @@ func handler(allowURL []corsURL) http.HandlerFunc {
 		}
 		if purl.Host == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if !alllowURL(allowURL, purl.String(), r.Method) {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("not allow url or method"))
 			return
 		}
 		corsProxy(purl).ServeHTTP(w, r)
@@ -101,7 +109,10 @@ func corsProxy(u *url.URL) http.HandlerFunc {
 	}
 }
 
-func block(allowHost []string, next http.HandlerFunc) http.HandlerFunc {
+func block(allowHost []string, allowURL []corsURL, next http.HandlerFunc) http.HandlerFunc {
+	for i := range allowURL {
+		allowURL[i].regexp = regexp.MustCompile(allowURL[i].URL)
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		allow := false
 		rhost := r.Header.Get("referer")
@@ -126,6 +137,13 @@ func block(allowHost []string, next http.HandlerFunc) http.HandlerFunc {
 			w.Write([]byte("Forbidden"))
 			return
 		}
+		ru := r.URL.String()
+		ru = strings.TrimPrefix(ru, "/")
+		if !alllowURL(allowURL, ru, r.Method) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("not allow url or method"))
+			return
+		}
 		next(w, r)
 	}
 }
@@ -134,10 +152,7 @@ func alllowURL(alllowURL []corsURL, url, method string) bool {
 	for _, r := range alllowURL {
 		if r.regexp.MatchString(url) {
 			mi := methodM[method]
-			if r.Method&mi == mi {
-				return true
-			}
-			return false
+			return r.Method&mi == mi
 		}
 	}
 	return false
