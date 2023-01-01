@@ -134,14 +134,14 @@ func block(allowHost []string, allowURL []corsURL, next http.HandlerFunc) http.H
 				break
 			}
 		}
-		if !allow {
+		if !allow && len(allowHost) != 0 {
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("Forbidden"))
 			return
 		}
 		ru := r.URL.String()
 		ru = strings.TrimPrefix(ru, "/")
-		if !alllowURL(allowURL, ru, r.Method) {
+		if !alllowURL(allowURL, ru, r.Method) && len(allowURL) != 0 {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("not allow url or method"))
 			return
