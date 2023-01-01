@@ -31,6 +31,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+	} else {
+		c.Listen = ":8080"
 	}
 	var h http.Handler
 	if all {
