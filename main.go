@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/x509"
+	_ "embed"
 	"encoding/json"
 	"flag"
 	"log"
@@ -20,7 +22,18 @@ func init() {
 	flag.Parse()
 }
 
+//go:embed ca-certificates.crt
+var crt []byte
+
 func main() {
+	p := x509.NewCertPool()
+	ok := p.AppendCertsFromPEM(crt)
+	if !ok {
+		panic("failed to parse root certificate")
+	}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.TLSClientConfig.RootCAs = p
+
 	c := config{}
 	if !all {
 		b, err := os.ReadFile("config.json")
@@ -36,9 +49,9 @@ func main() {
 	}
 	var h http.Handler
 	if all {
-		h = handler()
+		h = handler(tr)
 	} else {
-		h = block(c.AllowHost, c.AlllowURL, handler())
+		h = block(c.AllowHost, c.AlllowURL, handler(tr))
 	}
 
 	s := http.Server{
@@ -52,7 +65,7 @@ func main() {
 	log.Println(s.ListenAndServe())
 }
 
-func handler() http.HandlerFunc {
+func handler(t http.RoundTripper) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		u := r.URL.String()
 		u = strings.TrimPrefix(u, "/")
@@ -69,17 +82,18 @@ func handler() http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		corsProxy(purl).ServeHTTP(w, r)
+		corsProxy(purl, t).ServeHTTP(w, r)
 	}
 }
 
-func corsProxy(u *url.URL) http.HandlerFunc {
+func corsProxy(u *url.URL, t http.RoundTripper) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		proxy := httputil.NewSingleHostReverseProxy(&url.URL{
 			Host:   u.Host,
 			Scheme: u.Scheme,
 		})
 		proxy.ErrorLog = log.Default()
+		proxy.Transport = t
 
 		df := proxy.Director
 
